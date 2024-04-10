@@ -21,6 +21,14 @@ This gem hooks into your Rails application to enhance the `SQLite3Adapter` autom
 
 Once installed, you can take advantage of the added features.
 
+### Configuration
+
+One optional advanced feature is to have this gem isolate reading and writing connection pools. This is useful if you have a large amount of write operations and want to avoid blocking reads.
+
+You can configure this gem via the Rails configuration object, under the `enhanced_sqlite3` key. Currently, only 1 configuration option is available:
+
+* `isolate_connection_pools` - Whether or not to isolate reading from writing connection pools. See [below](#isolated-connection-pools) for more information.
+
 ### Generated columns
 
 You can now create `virtual` columns, both stored and dynamic. The [SQLite docs](https://www.sqlite.org/gencol.html) explain the difference:
@@ -80,6 +88,25 @@ default: &default
   extensions:
     - sqlite_ulid
 ```
+
+### Isolated connection pools
+
+By default, Rails uses a single connection pool for both reading and writing. This can lead to contention if you have a large number of write operations. This gem allows you to isolate the connection pools for reading and writing.
+
+To enable this feature, set the `isolate_connection_pools` configuration option to `true` in your `config/environments/*.rb` file or `config/application.rb` file:
+
+```ruby
+config.enhanced_sqlite3.isolate_connection_pools = true
+```
+
+If enabled, the gem will patch your application in 3 ways:
+
+1. define separate `reader` and `writer` database configurations
+2. activate Rails' automatic role database switching middleware, defaulting all requests to the `reader` connection pool
+3. patch the ActiveRecord `#transaction` method to switch to the `writer` connection pool for write operations
+4. patch the ActiveRecord `#log` method to log the database name for each database operation
+
+This feature is experimental and may not work with all Rails configurations. Please report any issues you encounter.
 
 ## Development
 
